@@ -34,6 +34,7 @@ fi
 
 # Get script location
 SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+CURRENT_PATH="$(pwd)"
 
 # Detect system type
 detect_system_type() {
@@ -51,6 +52,7 @@ SYSTEM_TYPE=$(detect_system_type)
 # Print welcome message
 echo -e "${GREEN}System Startup Command Manager${RESET}"
 echo "Script location: $SCRIPT_PATH"
+echo "Current directory: $CURRENT_PATH"
 echo "Detected system type: $SYSTEM_TYPE"
 echo ""
 
@@ -79,7 +81,32 @@ fi
 
 # Ask for the working directory
 echo ""
-read -p "Enter the working directory for the command (or press Enter for default): " WORKING_DIR
+echo -e "${BLUE}Working directory:${RESET}"
+echo "1. Use current directory: $CURRENT_PATH"
+echo "2. Specify a different path"
+echo "3. Use default (system default)"
+read -p "Enter your choice (1/2/3): " DIR_CHOICE
+
+case "$DIR_CHOICE" in
+    1)
+        WORKING_DIR="$CURRENT_PATH"
+        ;;
+    2)
+        read -p "Enter the full path: " WORKING_DIR
+        # Validate the path
+        if [ ! -d "$WORKING_DIR" ]; then
+            echo -e "${RED}Warning: The path '$WORKING_DIR' does not exist or is not a directory.${RESET}"
+            read -p "Continue anyway? (y/n): " CONTINUE
+            if [ "$CONTINUE" != "y" ]; then
+                echo "Exiting."
+                exit 1
+            fi
+        fi
+        ;;
+    *)
+        WORKING_DIR=""
+        ;;
+esac
 
 # Ask for user to run as
 echo ""
@@ -187,7 +214,7 @@ echo -e "${GREEN}Summary:${RESET}"
 echo "Task name: $TASK_NAME"
 echo "Description: ${DESCRIPTION:-None}"
 echo "Command: $COMMAND"
-echo "Working directory: ${WORKING_DIR:-Default}"
+echo "Working directory: ${WORKING_DIR:-Default system path}"
 echo "Run as user: $RUN_USER"
 echo "System type: $SYSTEM_TYPE"
 
