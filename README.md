@@ -112,6 +112,37 @@ This script helps you easily add commands to your shell's startup file (like `.b
 
 3. Follow the interactive prompts
 
+### 3. github-repo-manager.sh
+
+This script lists your GitHub repositories, lets you select one, creates a folder with the same name, and clones the repository into it.
+
+#### Features:
+
+- Lists all your GitHub repositories with numbers for easy selection
+- Creates a folder with the same name as the selected repository
+- Clones the repository into the newly created folder
+- Detects project type and suggests appropriate startup commands
+- Supports various project types (Node.js, Python, Ruby, PHP, Java, Go, Docker)
+
+#### Requirements:
+
+- GitHub CLI (gh) installed and authenticated (https://cli.github.com)
+
+#### Usage:
+
+1. Make the script executable:
+   ```bash
+   chmod +x startup-scripts/github-repo-manager.sh
+   ```
+
+2. Run the script:
+   ```bash
+   ./startup-scripts/github-repo-manager.sh
+   ```
+
+3. Select a repository from the list
+4. The script will create a folder, clone the repo, and suggest a startup command
+
 ## Contributing
 
 Feel free to submit pull requests with improvements or additional scripts.
