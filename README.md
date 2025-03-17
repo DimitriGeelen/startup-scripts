@@ -41,7 +41,7 @@ This script adds commands to run at system boot time BEFORE any user login. It s
    - Name your startup task
    - Add an optional description
    - Enter the command to run at boot
-   - Specify a working directory (optional)
+   - Choose a working directory (current path, custom path, or system default)
    - Choose which user to run the command as
 
 #### Example:
@@ -49,6 +49,7 @@ This script adds commands to run at system boot time BEFORE any user login. It s
 ```
 System Startup Command Manager
 Script location: /root/startup-scripts/add-to-system-startup.sh
+Current directory: /home/user/projects
 Detected system type: systemd
 
 Enter a name for this startup task (no spaces, e.g. 'mysql_server'): web_server
@@ -57,7 +58,11 @@ Enter a description for this task (optional): Start development web server
 
 Enter the command to run at system startup: /usr/local/bin/serve -p 8080
 
-Enter the working directory for the command (or press Enter for default): /var/www
+Working directory:
+1. Use current directory: /home/user/projects
+2. Specify a different path
+3. Use default (system default)
+Enter your choice (1/2/3): 1
 
 Run command as:
 1. root (system user)
@@ -69,7 +74,7 @@ Summary:
 Task name: web_server
 Description: Start development web server
 Command: /usr/local/bin/serve -p 8080
-Working directory: /var/www
+Working directory: /home/user/projects
 Run as user: www-data
 System type: systemd
 
