@@ -125,112 +125,166 @@ check_prerequisites() {
   fi
 }
 
-# Create and activate virtual environment
-create_virtual_environment() {
-  # Check if virtual environment already exists
-  if [ -d "venv" ]; then
-    echo -e "${YELLOW}Virtual environment already exists at venv${NC}"
-    echo -e "${BLUE}Would you like to recreate it? (y/n)${NC}"
-    read -r recreate_choice
+# Handle existing install.py script
+handle_python_installer() {
+  if [ -f "install.py" ]; then
+    echo -e "${BLUE}Found Python installation script (install.py)${NC}"
+    echo -e "${YELLOW}WARNING: The previous installation attempt using install.py failed.${NC}"
+    echo -e "${BLUE}Would you like to:${NC}"
+    echo -e "1) Continue with this bash installer (recommended)"
+    echo -e "2) Try to fix the Python installer"
+    echo -e "3) Exit"
+    read -r python_installer_choice
     
-    if [[ "$recreate_choice" =~ ^[Yy]$ ]]; then
-      echo -e "${BLUE}Removing existing virtual environment...${NC}"
-      rm -rf venv
-    else
-      echo -e "${BLUE}Using existing virtual environment...${NC}"
-      
-      # Check if pip exists in the virtual environment
-      if [ ! -f "venv/bin/pip" ] && [ ! -f "venv/bin/pip3" ]; then
-        echo -e "${YELLOW}pip not found in virtual environment.${NC}"
-        echo -e "${BLUE}Recreating virtual environment...${NC}"
-        rm -rf venv
-      else
-        return 0
-      fi
-    fi
-  fi
-  
-  echo -e "${BLUE}Creating virtual environment at venv...${NC}"
-  
-  # Make sure Python is available
-  if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Python 3 is not installed. Please install Python 3.${NC}"
-    echo -e "${YELLOW}Try: apt install python3${NC}"
-    exit 1
-  fi
-  
-  # Try to create virtual environment with error handling
-  if ! python3 -m venv venv; then
-    echo -e "${RED}Error creating virtual environment.${NC}"
-    echo -e "${YELLOW}Checking Python venv capability...${NC}"
-    
-    # Check if venv module is available
-    if ! python3 -m venv --help &> /dev/null; then
-      echo -e "${RED}Python venv module is not available.${NC}"
-      echo -e "${YELLOW}Would you like to install it now? (y/n)${NC}"
-      read -r venv_choice
-      
-      if [[ "$venv_choice" =~ ^[Yy]$ ]]; then
-        install_system_dependencies
+    case $python_installer_choice in
+      1)
+        echo -e "${BLUE}Continuing with bash installer...${NC}"
         
-        # Try creating venv again
-        echo -e "${BLUE}Trying to create virtual environment again...${NC}"
-        if ! python3 -m venv venv; then
-          echo -e "${RED}Installation aborted due to failure creating virtual environment.${NC}"
-          exit 1
+        # Check if we should rename the Python installer
+        echo -e "${BLUE}Would you like to rename install.py to avoid conflicts? (y/n)${NC}"
+        read -r rename_choice
+        
+        if [[ "$rename_choice" =~ ^[Yy]$ ]]; then
+          mv install.py install.py.bak
+          echo -e "${GREEN}Renamed install.py to install.py.bak${NC}"
         fi
-      else
-        echo -e "${RED}Installation aborted due to missing Python venv module.${NC}"
-        exit 1
-      fi
-    else
-      echo -e "${RED}Installation aborted due to failure creating virtual environment.${NC}"
+        ;;
+      2)
+        echo -e "${BLUE}Attempting to fix Python installer issues...${NC}"
+        
+        # Fix common issues with venv/bin/pip
+        if [ -d "venv" ]; then
+          echo -e "${YELLOW}Found existing virtual environment. Checking for pip...${NC}"
+          
+          if [ ! -f "venv/bin/pip" ] && [ ! -f "venv/bin/pip3" ]; then
+            echo -e "${YELLOW}pip not found in virtual environment. Fixing...${NC}"
+            
+            # Option 1: Recreate the venv
+            echo -e "${BLUE}Recreating virtual environment...${NC}"
+            rm -rf venv
+            
+            # Make sure venv module is available
+            if ! python3 -m venv --help &> /dev/null; then
+              echo -e "${YELLOW}Installing Python venv package...${NC}"
+              apt install -y python3-venv
+            fi
+            
+            # Create new venv
+            python3 -m venv venv
+            
+            if [ $? -ne 0 ]; then
+              echo -e "${RED}Failed to create virtual environment. Trying bash installer...${NC}"
+              return 0
+            fi
+            
+            echo -e "${GREEN}Virtual environment recreated successfully.${NC}"
+            
+            # Now try running the Python installer
+            echo -e "${BLUE}Running Python installer...${NC}"
+            python3 install.py
+            
+            if [ $? -ne 0 ]; then
+              echo -e "${RED}Python installer failed again. Switching to bash installer...${NC}"
+              return 0
+            else
+              echo -e "${GREEN}Python installer completed successfully!${NC}"
+              exit 0
+            fi
+          fi
+        fi
+        
+        # Try running the Python installer directly
+        echo -e "${BLUE}Trying to run Python installer directly...${NC}"
+        python3 install.py
+        
+        if [ $? -ne 0 ]; then
+          echo -e "${RED}Python installer failed. Switching to bash installer...${NC}"
+          return 0
+        else
+          echo -e "${GREEN}Python installer completed successfully!${NC}"
+          exit 0
+        fi
+        ;;
+      3)
+        echo -e "${YELLOW}Exiting installation.${NC}"
+        exit 0
+        ;;
+      *)
+        echo -e "${YELLOW}Invalid choice. Continuing with bash installer...${NC}"
+        ;;
+    esac
+  fi
+}
+
+# Clean up and reset virtual environment
+reset_virtual_environment() {
+  if [ -d "venv" ]; then
+    echo -e "${YELLOW}Removing existing virtual environment...${NC}"
+    rm -rf venv
+  fi
+  
+  echo -e "${BLUE}Creating fresh virtual environment...${NC}"
+  python3 -m venv venv
+  
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to create virtual environment.${NC}"
+    install_system_dependencies
+    
+    # Try again
+    echo -e "${BLUE}Trying to create virtual environment again...${NC}"
+    python3 -m venv venv
+    
+    if [ $? -ne 0 ]; then
+      echo -e "${RED}Failed to create virtual environment. Installation aborted.${NC}"
       exit 1
     fi
   fi
-
+  
   echo -e "${GREEN}Virtual environment created successfully.${NC}"
+  
+  # Initialize pip in the venv to make sure it exists
+  echo -e "${BLUE}Initializing pip in virtual environment...${NC}"
+  source venv/bin/activate
+  
+  # Verify Python is available in venv
+  if ! command -v python &> /dev/null; then
+    echo -e "${RED}Python not available in virtual environment.${NC}"
+    exit 1
+  fi
+  
+  # Install pip if it doesn't exist
+  if ! command -v pip &> /dev/null; then
+    echo -e "${YELLOW}pip not found in virtual environment. Installing...${NC}"
+    curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+    python get-pip.py
+    rm get-pip.py
+  fi
+  
+  # Verify pip installation
+  if ! command -v pip &> /dev/null; then
+    echo -e "${RED}Failed to install pip in virtual environment.${NC}"
+    exit 1
+  fi
+  
+  echo -e "${GREEN}pip initialized in virtual environment.${NC}"
+  deactivate
 }
 
 # Install Python dependencies
 install_dependencies() {
+  echo -e "${BLUE}Installing Python dependencies...${NC}"
+  
   # Activate virtual environment
   echo -e "${BLUE}Activating virtual environment...${NC}"
-  source venv/bin/activate || source venv/Scripts/activate
+  source venv/bin/activate
   
-  # Check if pip exists in the virtual environment
-  if [ ! -f "venv/bin/pip" ] && [ ! -f "venv/bin/pip3" ]; then
-    echo -e "${YELLOW}pip not found in virtual environment.${NC}"
-    echo -e "${BLUE}Installing pip in virtual environment...${NC}"
-    
-    # Download get-pip.py
-    echo -e "${BLUE}Downloading get-pip.py...${NC}"
-    curl -s https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    
-    if [ $? -ne 0 ]; then
-      echo -e "${RED}Failed to download get-pip.py.${NC}"
-      echo -e "${YELLOW}Trying with wget...${NC}"
-      wget -q https://bootstrap.pypa.io/get-pip.py
-      
-      if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to download get-pip.py. Please check your internet connection.${NC}"
-        exit 1
-      fi
-    fi
-    
-    # Install pip in the virtual environment
-    python get-pip.py
-    
-    if [ $? -ne 0 ]; then
-      echo -e "${RED}Failed to install pip in virtual environment.${NC}"
-      exit 1
-    fi
-    
-    # Clean up
-    rm get-pip.py
+  # Verify pip is available
+  if ! command -v pip &> /dev/null; then
+    echo -e "${RED}pip not found in virtual environment. Something is wrong with the venv.${NC}"
+    deactivate
+    reset_virtual_environment
+    source venv/bin/activate
   fi
-  
-  echo -e "${BLUE}Installing Python dependencies...${NC}"
   
   # Upgrade pip first
   echo -e "${BLUE}Upgrading pip...${NC}"
@@ -254,6 +308,7 @@ install_dependencies() {
       if [[ "$common_deps_choice" =~ ^[Yy]$ ]]; then
         install_common_dependencies
       else
+        deactivate
         exit 1
       fi
     else
@@ -285,10 +340,11 @@ install_common_dependencies() {
   
   if [ $? -ne 0 ]; then
     echo -e "${RED}Error installing common dependencies.${NC}"
-    exit 1
+    return 1
   fi
   
   echo -e "${GREEN}Common dependencies installed successfully.${NC}"
+  return 0
 }
 
 # Create executable script
@@ -375,34 +431,19 @@ EOF
   echo -e "${GREEN}Executable script created successfully.${NC}"
 }
 
-# Function to detect and convert Python script if present
-check_for_python_installer() {
-  if [ -f "install.py" ]; then
-    echo -e "${BLUE}Found Python installation script (install.py)${NC}"
-    echo -e "${BLUE}Would you like to continue with the bash installation script instead? (y/n)${NC}"
-    read -r continue_choice
-    
-    if ! [[ "$continue_choice" =~ ^[Yy]$ ]]; then
-      echo -e "${GREEN}Exiting bash installer. Please run the Python installer using:${NC}"
-      echo -e "${YELLOW}python3 install.py${NC}"
-      exit 0
-    fi
-  fi
-}
-
 # Main installation process
 main() {
   # Global variable to track if there are any errors
   HAS_ERRORS=false
   
-  # Check for Python installer
-  check_for_python_installer
+  # Handle existing Python installer
+  handle_python_installer
   
   # Check prerequisites
   check_prerequisites
   
-  # Create virtual environment
-  create_virtual_environment
+  # Reset and create fresh virtual environment
+  reset_virtual_environment
   
   # Install dependencies
   install_dependencies
