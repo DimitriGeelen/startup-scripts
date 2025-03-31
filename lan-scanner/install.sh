@@ -20,38 +20,34 @@ fi
 
 # Function to check and install system dependencies
 install_system_dependencies() {
-  echo -e "${BLUE}Checking and installing system dependencies...${NC}"
+  echo -e "${BLUE}Installing system dependencies...${NC}"
   
   # Update package list
   echo -e "${BLUE}Updating package lists...${NC}"
   apt update
   
-  # Check for Chrome/Chromium
+  # Install Chrome/Chromium automatically
+  echo -e "${YELLOW}Installing Chromium browser...${NC}"
+  apt install -y chromium-browser || apt install -y chromium || apt install -y chromium-bsu
+  
+  # Check if installation was successful
   if ! command -v chromium-browser &> /dev/null && ! command -v chromium &> /dev/null && ! command -v google-chrome &> /dev/null; then
-    echo -e "${YELLOW}Installing Chromium browser...${NC}"
-    apt install -y chromium-browser || apt install -y chromium
-    
-    # If still not found after installation attempt
-    if ! command -v chromium-browser &> /dev/null && ! command -v chromium &> /dev/null && ! command -v google-chrome &> /dev/null; then
-      echo -e "${RED}Failed to install Chrome/Chromium. Please install manually.${NC}"
-      HAS_ERRORS=true
-    fi
+    echo -e "${RED}Failed to install Chrome/Chromium. The application might not work correctly.${NC}"
+    HAS_ERRORS=true
   else
-    echo -e "${GREEN}Chrome/Chromium is already installed.${NC}"
+    echo -e "${GREEN}Chrome/Chromium is installed.${NC}"
   fi
   
-  # Check for nmap
+  # Install nmap automatically
+  echo -e "${YELLOW}Installing nmap...${NC}"
+  apt install -y nmap
+  
+  # Check if installation was successful
   if ! command -v nmap &> /dev/null; then
-    echo -e "${YELLOW}Installing nmap...${NC}"
-    apt install -y nmap
-    
-    # If still not found after installation attempt
-    if ! command -v nmap &> /dev/null; then
-      echo -e "${RED}Failed to install nmap. Please install manually.${NC}"
-      HAS_ERRORS=true
-    fi
+    echo -e "${RED}Failed to install nmap. The application might not work correctly.${NC}"
+    HAS_ERRORS=true
   else
-    echo -e "${GREEN}nmap is already installed.${NC}"
+    echo -e "${GREEN}nmap is installed.${NC}"
   fi
   
   # Check for Python venv package
@@ -88,7 +84,7 @@ install_system_dependencies() {
   fi
 }
 
-# Check for prerequisites
+# Check for prerequisites and install automatically
 check_prerequisites() {
   MISSING_PREREQS=()
 
@@ -108,20 +104,15 @@ check_prerequisites() {
   fi
 
   if [ ${#MISSING_PREREQS[@]} -gt 0 ]; then
-    echo -e "${YELLOW}WARNING: The following prerequisites are missing:${NC}"
+    echo -e "${YELLOW}Installing missing prerequisites:${NC}"
     for prereq in "${MISSING_PREREQS[@]}"; do
       echo -e "  - $prereq"
     done
     
-    echo -e "${BLUE}Would you like to automatically install missing dependencies? (y/n)${NC}"
-    read -r install_choice
-    
-    if [[ "$install_choice" =~ ^[Yy]$ ]]; then
-      install_system_dependencies
-    else
-      echo -e "${YELLOW}You will need to install these manually before running the application.${NC}"
-      echo -e "${YELLOW}Installation will continue, but the application may not function correctly.${NC}"
-    fi
+    # Install system dependencies automatically
+    install_system_dependencies
+  else
+    echo -e "${GREEN}All prerequisites are installed.${NC}"
   fi
 }
 
@@ -129,90 +120,12 @@ check_prerequisites() {
 handle_python_installer() {
   if [ -f "install.py" ]; then
     echo -e "${BLUE}Found Python installation script (install.py)${NC}"
-    echo -e "${YELLOW}WARNING: The previous installation attempt using install.py failed.${NC}"
-    echo -e "${BLUE}Would you like to:${NC}"
-    echo -e "1) Continue with this bash installer (recommended)"
-    echo -e "2) Try to fix the Python installer"
-    echo -e "3) Exit"
-    read -r python_installer_choice
+    echo -e "${YELLOW}WARNING: Using Python installer might cause issues.${NC}"
     
-    case $python_installer_choice in
-      1)
-        echo -e "${BLUE}Continuing with bash installer...${NC}"
-        
-        # Check if we should rename the Python installer
-        echo -e "${BLUE}Would you like to rename install.py to avoid conflicts? (y/n)${NC}"
-        read -r rename_choice
-        
-        if [[ "$rename_choice" =~ ^[Yy]$ ]]; then
-          mv install.py install.py.bak
-          echo -e "${GREEN}Renamed install.py to install.py.bak${NC}"
-        fi
-        ;;
-      2)
-        echo -e "${BLUE}Attempting to fix Python installer issues...${NC}"
-        
-        # Fix common issues with venv/bin/pip
-        if [ -d "venv" ]; then
-          echo -e "${YELLOW}Found existing virtual environment. Checking for pip...${NC}"
-          
-          if [ ! -f "venv/bin/pip" ] && [ ! -f "venv/bin/pip3" ]; then
-            echo -e "${YELLOW}pip not found in virtual environment. Fixing...${NC}"
-            
-            # Option 1: Recreate the venv
-            echo -e "${BLUE}Recreating virtual environment...${NC}"
-            rm -rf venv
-            
-            # Make sure venv module is available
-            if ! python3 -m venv --help &> /dev/null; then
-              echo -e "${YELLOW}Installing Python venv package...${NC}"
-              apt install -y python3-venv
-            fi
-            
-            # Create new venv
-            python3 -m venv venv
-            
-            if [ $? -ne 0 ]; then
-              echo -e "${RED}Failed to create virtual environment. Trying bash installer...${NC}"
-              return 0
-            fi
-            
-            echo -e "${GREEN}Virtual environment recreated successfully.${NC}"
-            
-            # Now try running the Python installer
-            echo -e "${BLUE}Running Python installer...${NC}"
-            python3 install.py
-            
-            if [ $? -ne 0 ]; then
-              echo -e "${RED}Python installer failed again. Switching to bash installer...${NC}"
-              return 0
-            else
-              echo -e "${GREEN}Python installer completed successfully!${NC}"
-              exit 0
-            fi
-          fi
-        fi
-        
-        # Try running the Python installer directly
-        echo -e "${BLUE}Trying to run Python installer directly...${NC}"
-        python3 install.py
-        
-        if [ $? -ne 0 ]; then
-          echo -e "${RED}Python installer failed. Switching to bash installer...${NC}"
-          return 0
-        else
-          echo -e "${GREEN}Python installer completed successfully!${NC}"
-          exit 0
-        fi
-        ;;
-      3)
-        echo -e "${YELLOW}Exiting installation.${NC}"
-        exit 0
-        ;;
-      *)
-        echo -e "${YELLOW}Invalid choice. Continuing with bash installer...${NC}"
-        ;;
-    esac
+    # Automatically rename the Python installer to avoid conflicts
+    mv install.py install.py.bak
+    echo -e "${GREEN}Renamed install.py to install.py.bak${NC}"
+    echo -e "${BLUE}Continuing with bash installer...${NC}"
   fi
 }
 
@@ -302,29 +215,15 @@ install_dependencies() {
     
     if [ $? -ne 0 ]; then
       echo -e "${RED}Error installing dependencies from requirements.txt.${NC}"
-      echo -e "${YELLOW}Would you like to try installing common dependencies? (y/n)${NC}"
-      read -r common_deps_choice
-      
-      if [[ "$common_deps_choice" =~ ^[Yy]$ ]]; then
-        install_common_dependencies
-      else
-        deactivate
-        exit 1
-      fi
+      echo -e "${YELLOW}Installing common dependencies instead...${NC}"
+      install_common_dependencies
     else
       echo -e "${GREEN}Dependencies installed successfully from requirements.txt.${NC}"
     fi
   else
     echo -e "${YELLOW}requirements.txt not found.${NC}"
-    echo -e "${BLUE}Would you like to install common dependencies? (y/n)${NC}"
-    read -r common_deps_choice
-    
-    if [[ "$common_deps_choice" =~ ^[Yy]$ ]]; then
-      install_common_dependencies
-    else
-      echo -e "${YELLOW}No dependencies installed. The application may not function correctly.${NC}"
-      HAS_ERRORS=true
-    fi
+    echo -e "${BLUE}Installing common dependencies...${NC}"
+    install_common_dependencies
   fi
   
   # Deactivate virtual environment
@@ -396,8 +295,14 @@ if [ -f "app.py" ]; then
 elif [ -f "main.py" ]; then
   echo -e "${BLUE}Running main.py...${NC}"
   python main.py
+elif [ -f "scanner.py" ]; then
+  echo -e "${BLUE}Running scanner.py...${NC}"
+  python scanner.py
+elif [ -f "lan_scanner.py" ]; then
+  echo -e "${BLUE}Running lan_scanner.py...${NC}"
+  python lan_scanner.py
 else
-  echo -e "${YELLOW}No app.py or main.py found.${NC}"
+  echo -e "${YELLOW}No common entry point found.${NC}"
   echo -e "${BLUE}Searching for Python files with main function...${NC}"
   
   # Try to find a suitable Python file to run
@@ -439,7 +344,7 @@ main() {
   # Handle existing Python installer
   handle_python_installer
   
-  # Check prerequisites
+  # Check prerequisites and install automatically
   check_prerequisites
   
   # Reset and create fresh virtual environment
